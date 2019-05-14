@@ -19,9 +19,11 @@ export class AsyncThrottleWaitTimeoutError extends Error {
  */
 export interface IAsyncThrottleOptions {
   /** 超时时间 */
-  timeout: number;
-  /** 同时执行任务容量，如果当前执行任务超过此限定值，则新任务放到等待队列 */
-  capacity: number;
+  timeout?: number;
+  /** 同时执行任务的数量，如果当前执行任务超过此限定值，则新任务放到等待队列 */
+  concurrent?: number;
+  /** 限制TPS（每秒可完成的数量） */
+  tps?: number;
 }
 
 export interface IWaitItem {
@@ -39,19 +41,77 @@ export interface IWaitItem {
   fn: () => Promise<any>;
 }
 
-export class AsyncThrottle {
-  protected readonly timeout: number;
-  protected readonly capacity: number;
-  protected runningTask: Map<string, IWaitItem> = new Map();
-  protected waittingList: IWaitItem[] = [];
+/**
+ * 获得秒时间戳
+ */
+function getSecondTimestamp(): number {
+  return parseInt((Date.now() / 1000) as any, 10);
+}
 
-  constructor(options: IAsyncThrottleOptions) {
-    this.timeout = options.timeout;
-    this.capacity = options.capacity;
+class TPSCounter {
+  protected timestamp: number = 0;
+  protected counter: number = 0;
+
+  /**
+   * 加1
+   */
+  public incr(n: number = 1) {
+    const t = getSecondTimestamp();
+    if (t === this.timestamp) {
+      this.counter += n;
+    } else {
+      this.timestamp = t;
+      this.counter = n;
+    }
   }
 
+  /**
+   * 加0
+   */
+  public noop() {
+    this.incr(0);
+    return this;
+  }
+
+  /**
+   * 判断是否在范围内
+   * @param n
+   */
+  public isWithinLimit(n: number): boolean {
+    return this.counter <= n;
+  }
+}
+
+export const DEFAULT_TIMEOUT = 3600000;
+export const DEFAULT_CONCURRENT = 1000;
+export const DEFAULT_TPS = Number.MAX_SAFE_INTEGER;
+
+export class AsyncThrottle {
+  protected readonly timeout: number;
+  protected readonly concurrent: number;
+  protected readonly tps: number;
+  protected runningTask: Map<string, IWaitItem> = new Map();
+  protected waittingList: IWaitItem[] = [];
+  protected tpsCounter: TPSCounter = new TPSCounter();
+
+  constructor(options: IAsyncThrottleOptions) {
+    this.timeout = options.timeout! > 0 ? options.timeout! : DEFAULT_TIMEOUT;
+    this.concurrent = options.concurrent! > 0 ? options.concurrent! : DEFAULT_CONCURRENT;
+    this.tps = options.tps! > 0 ? options.tps! : DEFAULT_TPS;
+  }
+
+  /**
+   * 生成一个随机的ticket
+   */
   protected generateTicket() {
     return Date.now().toString(32) + Math.random().toString(32);
+  }
+
+  /**
+   * 判断当前是否可以立即执行新任务
+   */
+  protected canRunNewTaskImmediate() {
+    return this.runningTask.size < this.concurrent && this.tpsCounter.noop().isWithinLimit(this.tps);
   }
 
   /**
@@ -61,11 +121,12 @@ export class AsyncThrottle {
     return new Promise((resolve, reject) => {
       const ticket = this.generateTicket();
       const timestamp = Date.now();
-      if (this.runningTask.size < this.capacity) {
+      if (this.canRunNewTaskImmediate()) {
         const tid = setTimeout(() => {
           this.reject(ticket, new AsyncThrottleRunTimeoutError());
         }, this.timeout);
         this.runningTask.set(ticket, { ticket, timestamp, tid, resolve, reject, fn });
+        this.tpsCounter.incr();
         fn()
           .then(ret => this.resolve(ticket, ret))
           .catch(err => this.reject(ticket, err));
@@ -122,18 +183,25 @@ export class AsyncThrottle {
    * 执行任务
    */
   protected runNextTask() {
-    if (this.runningTask.size < this.capacity && this.waittingList.length > 0) {
-      const item = this.waittingList.shift()!;
-      clearTimeout(item.tid);
-      item.tid = setTimeout(() => {
-        this.reject(item.ticket, new AsyncThrottleRunTimeoutError());
-      }, this.timeout);
-      item.timestamp = Date.now();
-      this.runningTask.set(item.ticket, item);
-      item
-        .fn()
-        .then(ret => this.resolve(item.ticket, ret))
-        .catch(err => this.reject(item.ticket, err));
+    if (this.waittingList.length > 0) {
+      if (this.canRunNewTaskImmediate()) {
+        const item = this.waittingList.shift()!;
+        clearTimeout(item.tid);
+        item.tid = setTimeout(() => {
+          this.reject(item.ticket, new AsyncThrottleRunTimeoutError());
+        }, this.timeout);
+        item.timestamp = Date.now();
+        this.runningTask.set(item.ticket, item);
+        this.tpsCounter.incr();
+        item
+          .fn()
+          .then(ret => this.resolve(item.ticket, ret))
+          .catch(err => this.reject(item.ticket, err));
+      } else {
+        // 下一秒开始时再尝试执行
+        const wait = (getSecondTimestamp() + 1) * 1000 - Date.now();
+        setTimeout(() => this.runNextTask(), wait);
+      }
     }
   }
 }

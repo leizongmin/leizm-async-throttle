@@ -1,19 +1,19 @@
 import Benchmark from "@leizm/benchmark";
 import AsyncThrottle from "./throttle";
 
-const b = new Benchmark({ title: "@leizm/async-throttle Benchmark", concurrent: 10000 });
+const b = new Benchmark({ title: "@leizm/async-throttle Benchmark", concurrent: 10000, delay: 2 });
 
-const t1 = new AsyncThrottle({ timeout: 10000, capacity: 100 });
-const t2 = new AsyncThrottle({ timeout: 10000, capacity: 1000 });
-const t3 = new AsyncThrottle({ timeout: 10000, capacity: 10000 });
+const t1 = new AsyncThrottle({ timeout: 10000, concurrent: 100 });
+const t2 = new AsyncThrottle({ timeout: 10000, concurrent: 1000 });
+const t3 = new AsyncThrottle({ timeout: 10000, concurrent: 10000 });
 
-b.addAsync("#run capacity=100", async () => {
+b.addAsync("#run concurrent=100", async () => {
   await t1.run(async () => makeAsync(123456));
 })
-  .addAsync("#run capacity=1000", async () => {
+  .addAsync("#run concurrent=1000", async () => {
     await t2.run(async () => makeAsync(123456));
   })
-  .addAsync("#run capacity=10000", async () => {
+  .addAsync("#run concurrent=10000", async () => {
     await t3.run(async () => makeAsync(123456));
   })
   .run()

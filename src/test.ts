@@ -9,7 +9,7 @@ function sleep(ms: number) {
 
 describe("AsyncThrottle", function() {
   it("基本使用", async function() {
-    const t = new AsyncThrottle({ capacity: 10, timeout: 1000 });
+    const t = new AsyncThrottle({ concurrent: 10, timeout: 1000 });
     expect(
       await t.run(async () => {
         await sleep(20);
@@ -26,7 +26,7 @@ describe("AsyncThrottle", function() {
 
   it("等待顺序执行", async function() {
     this.timeout(100000);
-    const t = new AsyncThrottle({ capacity: 10, timeout: 200 });
+    const t = new AsyncThrottle({ concurrent: 10, timeout: 200 });
     const list: any[] = [];
     for (let i = 0; i < 10; i++) {
       list.push(
@@ -50,7 +50,7 @@ describe("AsyncThrottle", function() {
   });
 
   it("执行超时", async function() {
-    const t = new AsyncThrottle({ capacity: 1, timeout: 100 });
+    const t = new AsyncThrottle({ concurrent: 1, timeout: 100 });
     let isThrowError = false;
     try {
       await t.run(async () => {
@@ -72,7 +72,7 @@ describe("AsyncThrottle", function() {
 
   it("等待超时", async function() {
     this.timeout(100000);
-    const t = new AsyncThrottle({ capacity: 1, timeout: 200 });
+    const t = new AsyncThrottle({ concurrent: 1, timeout: 200 });
     const list: any[] = [];
     let counter = 0;
     for (let i = 0; i < 10; i++) {
@@ -93,5 +93,69 @@ describe("AsyncThrottle", function() {
     }
     expect(isThrowError).to.equal(true);
     expect(counter).to.deep.equal(1);
+  });
+
+  it("限制TPS", async function() {
+    this.timeout(100000);
+
+    // 保证开始时间是接近整秒的
+    const timestamp = Math.floor(Date.now() / 1000) * 1000;
+    await sleep(timestamp + 1000 - Date.now());
+
+    const startTime = Date.now();
+    const t = new AsyncThrottle({ timeout: 100000, tps: 10 });
+    const list: any[] = [];
+    let counter = 0;
+    for (let i = 0; i < 30; i++) {
+      list.push(
+        t.run(async () => {
+          await sleep(0);
+          counter++;
+          return i + 10;
+        }),
+      );
+    }
+    let isThrowError = false;
+    try {
+      await Promise.all(list);
+    } catch (err) {
+      isThrowError = true;
+      expect(err).to.instanceOf(AsyncThrottleWaitTimeoutError);
+    }
+    expect(isThrowError).to.equal(false);
+    expect(counter).to.deep.equal(30);
+    expect(Date.now() - startTime).to.above(2000);
+  });
+
+  it("限制TPS和并发", async function() {
+    this.timeout(100000);
+
+    // 保证开始时间是接近整秒的
+    const timestamp = Math.floor(Date.now() / 1000) * 1000;
+    await sleep(timestamp + 1000 - Date.now());
+
+    const startTime = Date.now();
+    const t = new AsyncThrottle({ timeout: 100000, tps: 10, concurrent: 2 });
+    const list: any[] = [];
+    let counter = 0;
+    for (let i = 0; i < 30; i++) {
+      list.push(
+        t.run(async () => {
+          await sleep(0);
+          counter++;
+          return i + 10;
+        }),
+      );
+    }
+    let isThrowError = false;
+    try {
+      await Promise.all(list);
+    } catch (err) {
+      isThrowError = true;
+      expect(err).to.instanceOf(AsyncThrottleWaitTimeoutError);
+    }
+    expect(isThrowError).to.equal(false);
+    expect(counter).to.deep.equal(30);
+    expect(Date.now() - startTime).to.above(2000);
   });
 });
