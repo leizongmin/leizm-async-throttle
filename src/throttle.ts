@@ -1,24 +1,41 @@
+/**
+ * 执行超时错误
+ */
 export class AsyncThrottleRunTimeoutError extends Error {
   public name: string = "AsyncThrottleRunTimeoutError";
   public code: string = "RUN_TIMEOUT";
 }
 
+/**
+ * 等待超时错误
+ */
 export class AsyncThrottleWaitTimeoutError extends Error {
   public name: string = "AsyncThrottleWaitTimeoutError";
   public code: string = "WAIT_TIMEOUT";
 }
 
+/**
+ * 限流器选项
+ */
 export interface IAsyncThrottleOptions {
+  /** 超时时间 */
   timeout: number;
+  /** 同时执行任务容量，如果当前执行任务超过此限定值，则新任务放到等待队列 */
   capacity: number;
 }
 
 export interface IWaitItem {
+  /** 任务票据 */
   ticket: string;
+  /** 时间戳 */
   timestamp: number;
+  /** 定时器ID */
   tid: NodeJS.Timeout;
+  /** 执行成功 */
   resolve: (ret: any) => void;
+  /** 执行失败 */
   reject: (err: Error) => void;
+  /** 执行函数 */
   fn: () => Promise<any>;
 }
 
@@ -61,6 +78,11 @@ export class AsyncThrottle {
     });
   }
 
+  /**
+   * 执行成功
+   * @param ticket
+   * @param ret
+   */
   protected resolve(ticket: string, ret: any) {
     const item = this.runningTask.get(ticket);
     this.runningTask.delete(ticket);
@@ -71,6 +93,11 @@ export class AsyncThrottle {
     this.runNextTask();
   }
 
+  /**
+   * 执行失败
+   * @param ticket
+   * @param err
+   */
   protected reject(ticket: string, err: Error) {
     if (err instanceof AsyncThrottleWaitTimeoutError) {
       const i = this.waittingList.findIndex(v => v.ticket === ticket);
@@ -91,6 +118,9 @@ export class AsyncThrottle {
     this.runNextTask();
   }
 
+  /**
+   * 执行任务
+   */
   protected runNextTask() {
     if (this.runningTask.size < this.capacity && this.waittingList.length > 0) {
       const item = this.waittingList.shift()!;

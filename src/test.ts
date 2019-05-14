@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import AsyncThrottle, { AsyncThrottleRunTimeoutError, AsyncThrottleWaitTimeoutError } from "./throttle";
+import { AsyncThrottle, AsyncThrottleRunTimeoutError, AsyncThrottleWaitTimeoutError } from "./throttle";
 
 function sleep(ms: number) {
   return new Promise(resolve => {
