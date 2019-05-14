@@ -1,0 +1,40 @@
+{
+  "name": "@leizm/async-throttle",
+  "version": "1.0.0",
+  "description": "异步操作限流",
+  "main": "dist/throttle.js",
+  "typings": "dist/throttle.d.ts",
+  "files": [
+    "dist/throttle.js",
+    "dist/throttle.d.ts"
+  ],
+  "scripts": {
+    "test": "mocha --require ts-node/register src/test.ts",
+    "benchmark": "ts-node src/benchmark.ts",
+    "compile": "rm -rf dist && tsc",
+    "prepublish": "npm run compile"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leizongmin/leizm-async-throttle.git"
+  },
+  "author": "Zongmin Lei <leizongmin@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/leizongmin/leizm-async-throttle/issues"
+  },
+  "homepage": "https://github.com/leizongmin/leizm-async-throttle#readme",
+  "peerDependencies": {
+    "@types/node": "^12.0.0"
+  },
+  "devDependencies": {
+    "@leizm/benchmark": "^1.0.0",
+    "@types/chai": "^4.1.7",
+    "@types/mocha": "^5.2.6",
+    "@types/node": "^12.0.0",
+    "chai": "^4.2.0",
+    "mocha": "^6.1.4",
+    "ts-node": "^8.1.0",
+    "typescript": "^3.4.5"
+  }
+}
