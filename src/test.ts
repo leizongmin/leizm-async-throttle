@@ -12,13 +12,15 @@ describe("AsyncThrottle", function() {
     const t = new AsyncThrottle({ concurrent: 10, timeout: 1000 });
     expect(
       await t.run(async () => {
-        await sleep(20);
+        expect(t.stat()).to.deep.equal({ running: 1, waitting: 0, tps: 1 });
+        await sleep(0);
         return 12345;
       }),
     ).to.equal(12345);
     expect(
       await t.run(async () => {
-        await sleep(20);
+        expect(t.stat()).to.deep.equal({ running: 1, waitting: 0, tps: 2 });
+        await sleep(0);
         return 456789;
       }),
     ).to.equal(456789);

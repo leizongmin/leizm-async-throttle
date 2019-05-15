@@ -16,10 +16,15 @@ const t = new AsyncThrottle({
   timeout: 1000,  // 超时时间
 });
 
+// 执行异步任务
 const ret = await t.run(async () => {
   return 12345;
 });
 // 返回结果：12345
+
+// 获得当前运行状态信息
+const stats = t.stat();
+// 返回结果：{ running: 1, waitting: 0, tps: 1 }
 ```
 
 ## 性能

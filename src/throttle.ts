@@ -41,6 +41,15 @@ export interface IWaitItem {
   fn: () => Promise<any>;
 }
 
+export interface IAsyncThrottleStats {
+  /** 当前正在执行的任务数量 */
+  running: number;
+  /** 当前正在等待的任务数量 */
+  waitting: number;
+  /** 当前TPS */
+  tps: number;
+}
+
 /**
  * 获得秒时间戳
  */
@@ -51,6 +60,13 @@ function getSecondTimestamp(): number {
 class TPSCounter {
   protected timestamp: number = 0;
   protected counter: number = 0;
+
+  /**
+   * 当前tps
+   */
+  public get tps() {
+    return this.counter;
+  }
 
   /**
    * 加1
@@ -137,6 +153,13 @@ export class AsyncThrottle {
         this.waittingList.push({ ticket, timestamp, tid, resolve, reject, fn });
       }
     });
+  }
+
+  /**
+   * 获得当前运行状态
+   */
+  public stat(): IAsyncThrottleStats {
+    return { running: this.runningTask.size, waitting: this.waittingList.length, tps: this.tpsCounter.tps };
   }
 
   /**

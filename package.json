@@ -1,6 +1,6 @@
 {
   "name": "@leizm/async-throttle",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "异步操作限流",
   "main": "dist/throttle.js",
   "typings": "dist/throttle.d.ts",
